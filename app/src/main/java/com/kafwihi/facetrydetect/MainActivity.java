@@ -174,15 +174,15 @@ public class MainActivity extends AppCompatActivity {
                             success = folder.mkdirs();
                         }
 
-                            java.util.Date date = new java.util.Date();
-                        String photoTime =date.toString()+".jpg";
+                           // java.util.Date date = new java.util.Date();
+                        //String photoTime ="GMK"+date.toString()+".jpg";
                             imageFile = new File(folder.getAbsolutePath()
                                     + File.separator
                                     //+ new Timestamp(date.getTime()).toString()
-                                    + photoTime);
+                                    + "image1");
 
                             imageFile.createNewFile();
-                            Toast.makeText(getApplicationContext(),"Photo Created "+photoTime,Toast.LENGTH_LONG).show();
+                            Toast.makeText(getApplicationContext(),"Photo Created ",Toast.LENGTH_LONG).show();
 
                         ByteArrayOutputStream ostream = new ByteArrayOutputStream();
 
