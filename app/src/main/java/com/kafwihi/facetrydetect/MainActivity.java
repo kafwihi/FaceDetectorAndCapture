@@ -1,9 +1,13 @@
 package com.kafwihi.facetrydetect;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.ContentValues;
+import android.content.Context;
 import android.os.Bundle;
 
+import android.graphics.Matrix;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -13,6 +17,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Camera;
 import android.net.Uri;
 import android.os.Bundle;
@@ -26,6 +31,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.FileProvider;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
@@ -38,42 +44,52 @@ import com.google.android.material.snackbar.Snackbar;
 import com.kafwihi.facetrydetect.camera.CameraSourcePreview;
 import com.kafwihi.facetrydetect.camera.GraphicOverlay;
 
-import java.io.File;
-import java.io.IOException;
 import java.sql.Timestamp;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 public class MainActivity extends AppCompatActivity {
 
     private Uri imageToUploadUri;
     String currentPhotoPath;
     private File imageFile;
     static final int REQUEST_TAKE_PHOTO = 1;
+    private java.util.Date date = new java.util.Date();
+
     private final Thread observer = new Thread("observer") {
 
+        //
         {
             setDaemon(true);
         }
 
         public void run() {
 
-            while( !isInterrupted() ) {
+            while (!isInterrupted()) {
                 /*
                 TextGraphic mTextGraphic = new TextGraphic(mGraphicOverlay);
                 mGraphicOverlay.add(mTextGraphic);*/
                 //mTextGraphic.updateText(2);
             }
 
-        };
+        }
+
+        ;
     };
 
     private static final String TAG = "FaceTracker";
 
     private CameraSource mCameraSource = null;
+    private int STORAGE_PERMISSION_CODE = 23;
+
     private int typeFace = 0;
     private int typeFlash = 0;
     private boolean flashmode = false;
     private Camera camera;
 
+    private Bitmap theImage;
     private CameraSourcePreview mPreview;
     private GraphicOverlay mGraphicOverlay;
 
@@ -99,22 +115,6 @@ public class MainActivity extends AppCompatActivity {
         //mGraphicOverlay.add(mTextGraphic);
 
 
-        ImageButton camera = (ImageButton) findViewById(R.id.camera);
-        camera.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                Toast.makeText(getApplicationContext(),"Work In Progress",Toast.LENGTH_LONG).show();
-
-                //dispatchTakePictureIntent();
-                //onDestroy();
-
-                //galleryAddPic();
-                Toast.makeText(getApplicationContext(),"Kafwihi",Toast.LENGTH_LONG).show();
-
-            }
-        });
-
-
-
         // Check for the camera permission before accessing the camera.  If the
         // permission is not granted yet, request permission.
         int rc = ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
@@ -123,106 +123,103 @@ public class MainActivity extends AppCompatActivity {
         } else {
             requestCameraPermission();
         }
-    }
 
-    private File createImageFile() throws IOException {
-        // Create an image file name
-        String state = Environment.getExternalStorageState();
-        java.util.Date date = new java.util.Date();
 
-        File storageDir = getDirectory();
-        String imageFileName = "KAFWIHI_" + new Timestamp(date.getTime()).toString() + "_";
-        imageFile =  File.createTempFile(
-                imageFileName,  //* prefix
-                ".jpg",         //* suffix
-                storageDir      //* directory
-        );
-             /* imageFile = new File(storageDir
-                    + File.separator
-                    //+ new Timestamp(date.getTime()).toString()
-                    + imageFileName);*/
-        currentPhotoPath = imageFile.getAbsolutePath();
+        ImageButton camera = (ImageButton) findViewById(R.id.camera);
+        camera.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+           //     Toast.makeText(getApplicationContext(), "Work In Progress", Toast.LENGTH_LONG).show();
 
-        //imageFile.createNewFile();
-
-        return imageFile;
-    }
-
-    private File getDirectory(){
-        String state = Environment.getExternalStorageState();
-        String folderPath = null;
-        File folder = null;
-        if (state.equals(Environment.MEDIA_MOUNTED)) {
-            folder = new File(Environment.getExternalStorageDirectory(),"*faceKafwihi");
-        }
-
-        //boolean success = true;
-        if (!folder.exists()) {
-            folder.mkdir();
-            //folderPath = folder.getAbsolutePath();
-        }
-        return folder;
-
-    }
-
-    private void dispatchTakePictureIntent() {
-        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        // Ensure that there's a camera activity to handle the intent
-        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
-            // Create the File where the photo should go
-            File photoFile = null;
-            try {
-                photoFile = createImageFile();
-            } catch (IOException ex) {
-                // Error occurred while creating the File
+                takeImage();
 
             }
-            // Continue only if the File was successfully created
-            if (photoFile != null) {
-               /* Uri photoURI = FileProvider.getUriForFile(this,
-                        "com.example.android.fileprovider",
-                        photoFile);*/
-                imageToUploadUri = Uri.fromFile(photoFile);
-                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(photoFile));
-                startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
-            }
-        }
+        });
+
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+    private void takeImage() {
+        try{
+            Thread.sleep(1000);
+            mCameraSource.takePicture(null, new CameraSource.PictureCallback() {
 
-        if (requestCode == REQUEST_TAKE_PHOTO && resultCode == Activity.RESULT_OK) {
-            Bundle extras =data.getExtras();
-            Bitmap imageBitmap = (Bitmap) extras.get("data");
-            ImageView mImageView = new ImageView(this);
-            mImageView.setImageBitmap(imageBitmap);
 
-           /* if(imageToUploadUri != null){
+                private File imageFile;
+                @Override
+                public void onPictureTaken(byte[] bytes) {
+                    try {
+                        // convert byte array into bitmap
+                        Bitmap loadedImage = null;
+                        Bitmap rotatedBitmap = null;
+                        loadedImage = BitmapFactory.decodeByteArray(bytes, 0,
+                                bytes.length);
 
-                Uri selectedImage = imageToUploadUri;
-                getContentResolver().notifyChange(selectedImage, null);
-                Bitmap reducedSizeBitmap = getBitmap(imageToUploadUri.getPath());
-                if(reducedSizeBitmap != null){
-                    ImgPhoto.setImageBitmap(reducedSizeBitmap);
-                    Button uploadImageButton = (Button) findViewById(R.id.uploadUserImageButton);
-                    uploadImageButton.setVisibility(View.VISIBLE);
-                }else{
-                    Toast.makeText(this,"Error while capturing Image",Toast.LENGTH_LONG).show();
+                        // rotate Image
+                        Matrix rotateMatrix = new Matrix();
+                        rotateMatrix.postRotate(getWindowManager().getDefaultDisplay().getRotation());
+                        rotatedBitmap = Bitmap.createBitmap(loadedImage, 0, 0,
+                                loadedImage.getWidth(), loadedImage.getHeight(),
+                                rotateMatrix, false);
+                       // String state = Environment.getExternalStorageState();
+                        File folder = null;
+                             folder = new File(Environment
+                                    .getExternalStorageDirectory()+"/faceFilter");
+                           // storageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).toString() + "/FaceFilter/");
+
+
+
+                        String imageFileName = "KAF" + new Timestamp(date.getTime()).toString()+".jpg";
+
+                        boolean success = true;
+                        if (!folder.exists()) {
+                            success = folder.mkdirs();
+                        }
+
+                            java.util.Date date = new java.util.Date();
+                            imageFile = new File(folder.getAbsolutePath()
+                                    + File.separator
+                                    //+ new Timestamp(date.getTime()).toString()
+                                    + "image2.jpg");
+
+                            imageFile.createNewFile();
+                            Toast.makeText(getApplicationContext(),"Photo Created "+imageFile.toString(),Toast.LENGTH_LONG).show();
+
+
+
+                        ByteArrayOutputStream ostream = new ByteArrayOutputStream();
+
+                        // save image into gallery
+                        rotatedBitmap = resize(rotatedBitmap, 800, 600);
+                        rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, ostream);
+
+                        FileOutputStream fout = new FileOutputStream(imageFile);
+                        fout.write(ostream.toByteArray());
+                        fout.close();
+                        ContentValues values = new ContentValues();
+
+                        values.put(MediaStore.Images.Media.DATE_TAKEN,
+                                System.currentTimeMillis());
+                        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+                        values.put(MediaStore.MediaColumns.DATA,
+                                imageFile.getAbsolutePath());
+
+                        setResult(Activity.RESULT_OK); //add this
+                        finish();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
+            });
 
-            }else{
-                Toast.makeText(this,"Error while capturing Image",Toast.LENGTH_LONG).show();
-            }*/
+        }catch (Exception ex){
         }
+
     }
-    private void galleryAddPic() {
-        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-        File f = new File(currentPhotoPath);
-        Uri contentUri = Uri.fromFile(f);
-        mediaScanIntent.setData(contentUri);
-        this.sendBroadcast(mediaScanIntent);
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_TAKE_PHOTO && resultCode == Activity.RESULT_OK) {
+            theImage = (Bitmap) data.getExtras().get("data");
+        }
     }
 
     private Bitmap resize(Bitmap image, int maxWidth, int maxHeight) {
@@ -272,10 +269,10 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-        /*Snackbar.make(mGraphicOverlay, R.string.permission_camera_rationale,
+        Snackbar.make(mGraphicOverlay, R.string.permission_camera_rationale,
                 Snackbar.LENGTH_INDEFINITE)
                 .setAction(R.string.ok, listener)
-                .show();*/
+                .show();
     }
 
     private void createCameraSource() {
@@ -424,5 +421,22 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
+    private void writeData(File myFile, String data) {
+        FileOutputStream fileOutputStream = null;
+        try {
+            fileOutputStream = new FileOutputStream(myFile);
+            fileOutputStream.write(data.getBytes());
+            Toast.makeText(this, "Done" + myFile.getAbsolutePath(), Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (fileOutputStream != null) {
+                try {
+                    fileOutputStream.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
 }
