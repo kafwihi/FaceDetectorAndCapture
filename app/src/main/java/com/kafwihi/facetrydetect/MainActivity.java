@@ -130,7 +130,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
            //     Toast.makeText(getApplicationContext(), "Work In Progress", Toast.LENGTH_LONG).show();
 
-                takeImage();
+                takeImage2();
 
             }
         });
@@ -165,7 +165,9 @@ public class MainActivity extends AppCompatActivity {
                                     .getExternalStorageDirectory()+"/faceFilter");
                            // storageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).toString() + "/FaceFilter/");
 
-
+/*try (Stream<Path> files = Files.list(Paths.get("your/path/here"))) {
+    long count = files.count();
+}*/
 
                         String imageFileName = "KAF" + new Timestamp(date.getTime()).toString()+".jpg";
 
@@ -179,7 +181,7 @@ public class MainActivity extends AppCompatActivity {
                             imageFile = new File(folder.getAbsolutePath()
                                     + File.separator
                                     //+ new Timestamp(date.getTime()).toString()
-                                    + "image1");
+                                    + imageFileName);
 
                             imageFile.createNewFile();
                             Toast.makeText(getApplicationContext(),"Photo Created ",Toast.LENGTH_LONG).show();
@@ -200,6 +202,75 @@ public class MainActivity extends AppCompatActivity {
                         values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
                         values.put(MediaStore.MediaColumns.DATA,
                                 imageFile.getAbsolutePath());
+
+                        setResult(Activity.RESULT_OK); //add this
+                        finish();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+
+        }catch (Exception ex){
+        }
+
+    }
+    private void takeImage2() {
+        try{
+           Thread.sleep(1000);
+            mCameraSource.takePicture(null, new CameraSource.PictureCallback() {
+
+                private File imageFile;
+                @Override
+                public void onPictureTaken(byte[] bytes) {
+                    try {
+                        // convert byte array into bitmap
+                        Bitmap loadedImage = null;
+                        Bitmap rotatedBitmap = null;
+                        loadedImage = BitmapFactory.decodeByteArray(bytes, 0,
+                                bytes.length);
+
+                        // rotate Image
+                        Matrix rotateMatrix = new Matrix();
+                        rotateMatrix.postRotate(getWindowManager().getDefaultDisplay().getRotation());
+                        rotatedBitmap = Bitmap.createBitmap(loadedImage, 0, 0,
+                                loadedImage.getWidth(), loadedImage.getHeight(),
+                                rotateMatrix, false);
+                        File folder = null;
+                            folder = new File(Environment
+                                    .getExternalStorageDirectory() + "/faceFilter");
+                        Toast.makeText(getApplicationContext(),"Photo Created ",Toast.LENGTH_LONG).show();
+
+                        boolean success = true;
+                        if (!folder.exists()) {
+                            success = folder.mkdirs();
+                        }
+
+                            java.util.Date date = new java.util.Date();
+                            imageFile = new File(folder.getAbsolutePath()
+                                    + File.separator
+                                    //+ new Timestamp(date.getTime()).toString()
+                                    + "GMK"+date.getTime()+".jpg");
+
+                            imageFile.createNewFile();
+
+                        ByteArrayOutputStream ostream = new ByteArrayOutputStream();
+
+                        // save image into gallery
+                        rotatedBitmap = resize(rotatedBitmap, 800, 600);
+                        rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, ostream);
+
+                        FileOutputStream fout = new FileOutputStream(imageFile);
+                        fout.write(ostream.toByteArray());
+                        fout.close();
+                        ContentValues values = new ContentValues();
+
+                        values.put(MediaStore.Images.Media.DATE_TAKEN,
+                                System.currentTimeMillis());
+                        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+                        values.put(MediaStore.MediaColumns.DATA,
+                                imageFile.getAbsolutePath());
+                        Toast.makeText(getApplicationContext(),"Photo Created "+ imageFile.getAbsolutePath().toString(),Toast.LENGTH_LONG).show();
 
                         setResult(Activity.RESULT_OK); //add this
                         finish();
